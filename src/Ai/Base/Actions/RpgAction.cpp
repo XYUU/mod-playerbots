@@ -7,7 +7,6 @@
 
 #include <random>
 
-#include "BattlegroundMgr.h"
 #include "ChatHelper.h"
 #include "EmoteAction.h"
 #include "Event.h"
@@ -16,7 +15,7 @@
 #include "ServerFacade.h"
 #include "RpgSubActions.h"
 
-bool RpgAction::Execute(Event event)
+bool RpgAction::Execute(Event /*event*/)
 {
     GuidPosition guidP = AI_VALUE(GuidPosition, "rpg target");
     if (!guidP && botAI->GetMaster())
@@ -85,7 +84,7 @@ bool RpgAction::SetNextRpgAction()
                     isChecked = true;
 
                     Action* action = botAI->GetAiObjectContext()->GetAction(nextAction.getName());
-                    if (!dynamic_cast<RpgEnabled*>(action) || !action->isPossible() || !action->isUseful())
+                    if (!dynamic_cast<RpgEnabled*>(action) || !action->isUseful() || !action->isPossible())
                         continue;
 
                     actions.push_back(action);
@@ -130,7 +129,7 @@ bool RpgAction::SetNextRpgAction()
 
     std::mt19937 gen(time(0));
 
-    sTravelMgr->weighted_shuffle(actions.begin(), actions.end(), relevances.begin(), relevances.end(), gen);
+    TravelMgr::instance().weighted_shuffle(actions.begin(), actions.end(), relevances.begin(), relevances.end(), gen);
 
     Action* action = actions.front();
 

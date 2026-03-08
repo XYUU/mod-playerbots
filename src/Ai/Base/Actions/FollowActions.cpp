@@ -5,17 +5,14 @@
 
 #include "FollowActions.h"
 
-#include <cstddef>
-
 #include "Event.h"
 #include "Formations.h"
 #include "LastMovementValue.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
-#include "SharedDefines.h"
 
-bool FollowAction::Execute(Event event)
+bool FollowAction::Execute(Event /*event*/)
 {
     Formation* formation = AI_VALUE(Formation*, "formation");
     std::string const target = formation->GetTargetName();
@@ -44,7 +41,7 @@ bool FollowAction::Execute(Event event)
     //     botAI->PetFollow();
     // }
     // if (moved)
-    // botAI->SetNextCheckDelay(sPlayerbotAIConfig->reactDelay);
+    // botAI->SetNextCheckDelay(sPlayerbotAIConfig.reactDelay);
 
     return moved;
 }
@@ -98,9 +95,9 @@ bool FollowAction::isUseful()
         distance = bot->GetDistance(loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ());
     }
     if (botAI->HasStrategy("master fishing", BOT_STATE_NON_COMBAT))
-        return sServerFacade->IsDistanceGreaterThan(distance, sPlayerbotAIConfig->fishingDistanceFromMaster);
+        return ServerFacade::instance().IsDistanceGreaterThan(distance, sPlayerbotAIConfig.fishingDistanceFromMaster);
 
-    return sServerFacade->IsDistanceGreaterThan(distance, formation->GetMaxDistance());
+    return ServerFacade::instance().IsDistanceGreaterThan(distance, formation->GetMaxDistance());
 }
 
 bool FollowAction::CanDeadFollow(Unit* target)
@@ -116,7 +113,7 @@ bool FollowAction::CanDeadFollow(Unit* target)
     return true;
 }
 
-bool FleeToGroupLeaderAction::Execute(Event event)
+bool FleeToGroupLeaderAction::Execute(Event /*event*/)
 {
     Unit* fTarget = AI_VALUE(Unit*, "group leader");
     bool canFollow = Follow(fTarget);
@@ -130,7 +127,7 @@ bool FleeToGroupLeaderAction::Execute(Event event)
     WorldPosition bosPos(bot);
     float distance = bosPos.fDist(targetPos);
 
-    if (distance < sPlayerbotAIConfig->reactDistance * 3)
+    if (distance < sPlayerbotAIConfig.reactDistance * 3)
     {
         if (!urand(0, 3))
             botAI->TellMaster("I am close, wait for me!");

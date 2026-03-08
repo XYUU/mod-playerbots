@@ -11,15 +11,26 @@
 
 bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
 {
+    // Apply parent's filtering first (includes level difference checks)
+    if (!PossibleTargetsValue::AcceptUnit(unit))
+        return false;
+
     bool inCannon = botAI->IsInVehicle(false, true);
     Player* enemy = dynamic_cast<Player*>(unit);
     if (enemy && botAI->IsOpposing(enemy) && enemy->IsPvP() &&
-        !sPlayerbotAIConfig->IsPvpProhibited(enemy->GetZoneId(), enemy->GetAreaId()) &&
+        !sPlayerbotAIConfig.IsPvpProhibited(enemy->GetZoneId(), enemy->GetAreaId()) &&
         !enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NON_ATTACKABLE_2) &&
         ((inCannon || !enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))) &&
         /*!enemy->HasStealthAura() && !enemy->HasInvisibilityAura()*/ enemy->CanSeeOrDetect(bot) &&
         !(enemy->HasSpiritOfRedemptionAura()))
+    {
+        // If with master, only attack if master is PvP flagged
+        Player* master = botAI->GetMaster();
+        if (master && !master->IsPvP() && !master->IsFFAPvP())
+            return false;
+
         return true;
+    }
 
     return false;
 }
@@ -131,7 +142,7 @@ Unit* EnemyPlayerValue::Calculate()
                 if (pMember == bot)
                     continue;
 
-                if (sServerFacade->GetDistance2d(bot, pMember) > 30.0f)
+                if (ServerFacade::instance().GetDistance2d(bot, pMember) > 30.0f)
                     continue;
 
                 if (Unit* pAttacker = pMember->getAttackerForHelper())

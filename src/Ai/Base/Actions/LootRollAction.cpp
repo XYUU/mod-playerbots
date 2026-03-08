@@ -13,7 +13,7 @@
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 
-bool LootRollAction::Execute(Event event)
+bool LootRollAction::Execute(Event /*event*/)
 {
     Group* group = bot->GetGroup();
     if (!group)
@@ -27,7 +27,6 @@ bool LootRollAction::Execute(Event event)
             continue;
         }
         ObjectGuid guid = roll->itemGUID;
-        uint32 slot = roll->itemSlot;
         uint32 itemId = roll->itemid;
         int32 randomProperty = 0;
         if (roll->itemRandomPropId)
@@ -84,12 +83,14 @@ bool LootRollAction::Execute(Event event)
                     break;
             }
         }
-        if (sPlayerbotAIConfig->lootRollLevel == 0)
+        if (sPlayerbotAIConfig.lootRollLevel == 0)
         {
             vote = PASS;
         }
-        else if (sPlayerbotAIConfig->lootRollLevel == 1)
+        else if (sPlayerbotAIConfig.lootRollLevel == 1)
         {
+            // Level 1 = "greed" mode: bots greed on useful items but never need
+            // Only downgrade NEED to GREED, preserve GREED votes as-is
             if (vote == NEED)
             {
                 if (RollUniqueCheck(proto, bot))
@@ -100,10 +101,6 @@ bool LootRollAction::Execute(Event event)
                     {
                         vote = GREED;
                     }
-            }
-            else if (vote == GREED)
-            {
-                vote = PASS;
             }
         }
         switch (group->GetLootMethod())
@@ -186,7 +183,6 @@ bool MasterLootRollAction::Execute(Event event)
     if (!group)
         return false;
 
-    RollVote vote = CalculateRollVote(proto);
     group->CountRollVote(bot->GetGUID(), creatureGuid, CalculateRollVote(proto));
 
     return true;

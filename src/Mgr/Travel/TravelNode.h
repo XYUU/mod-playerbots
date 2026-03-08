@@ -251,11 +251,11 @@ public:
     }
 
     // WorldLocation shortcuts
-    uint32 getMapId() { return point.getMapId(); }
-    float getX() { return point.getX(); }
-    float getY() { return point.getY(); }
-    float getZ() { return point.getZ(); }
-    float getO() { return point.getO(); }
+    uint32 getMapId() { return point.GetMapId(); }
+    float getX() { return point.GetPositionX(); }
+    float getY() { return point.GetPositionY(); }
+    float getZ() { return point.GetPositionZ(); }
+    float getO() { return point.GetOrientation(); }
     float getDistance(WorldPosition pos) { return point.distance(pos); }
     float getDistance(TravelNode* node) { return point.distance(node->getPosition()); }
     float fDist(TravelNode* node) { return point.fDist(node->getPosition()); }
@@ -477,13 +477,11 @@ public:
 class TravelNodeMap
 {
 public:
-    TravelNodeMap(){};
-    TravelNodeMap(TravelNodeMap* baseMap);
-
-    static TravelNodeMap* instance()
+    static TravelNodeMap& instance()
     {
         static TravelNodeMap instance;
-        return &instance;
+
+        return instance;
     }
 
     TravelNode* addNode(WorldPosition pos, std::string const preferedName = "Travel Node", bool isImportant = false,
@@ -586,6 +584,15 @@ public:
     std::unordered_map<ObjectGuid, std::unordered_map<uint32, TravelNode*>> teleportNodes;
 
 private:
+    TravelNodeMap() = default;
+    ~TravelNodeMap() = default;
+
+    TravelNodeMap(const TravelNodeMap&) = delete;
+    TravelNodeMap& operator=(const TravelNodeMap&) = delete;
+
+    TravelNodeMap(TravelNodeMap&&) = delete;
+    TravelNodeMap& operator=(TravelNodeMap&&) = delete;
+
     std::vector<TravelNode*> m_nodes;
 
     std::vector<std::pair<uint32, WorldPosition>> mapOffsets;

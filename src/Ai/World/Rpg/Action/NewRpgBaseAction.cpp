@@ -66,7 +66,7 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
             "playerbots",
             "[New RPG] Teleport {} from ({},{},{},{}) to ({},{},{},{}) as it stuck when moving far - Zone: {} ({})",
             bot->GetName(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), bot->GetMapId(),
-            dest.GetPositionX(), dest.GetPositionY(), dest.GetPositionZ(), dest.getMapId(), bot->GetZoneId(),
+            dest.GetPositionX(), dest.GetPositionY(), dest.GetPositionZ(), dest.GetMapId(), bot->GetZoneId(),
             zone_name);
         bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
         return bot->TeleportTo(dest);
@@ -75,7 +75,7 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
     float dis = bot->GetExactDist(dest);
     if (dis < pathFinderDis)
     {
-        return MoveTo(dest.getMapId(), dest.GetPositionX(), dest.GetPositionY(), dest.GetPositionZ(), false, false,
+        return MoveTo(dest.GetMapId(), dest.GetPositionX(), dest.GetPositionY(), dest.GetPositionZ(), false, false,
                       false, true);
     }
 
@@ -262,10 +262,10 @@ bool NewRpgBaseAction::CanInteractWithQuestGiver(Object* questGiver)
     // that removes the distance check and keeps all other checks
     switch (questGiver->GetTypeId())
     {
-        case TYPEID_UNIT:
+        case TYPEID_UNIT: // Player::GetNPCIfCanInteractWith
         {
             ObjectGuid guid = questGiver->GetGUID();
-            uint32 npcflagmask = UNIT_NPC_FLAG_QUESTGIVER;
+
             // unit checks
             if (!guid)
                 return false;
@@ -292,7 +292,7 @@ bool NewRpgBaseAction::CanInteractWithQuestGiver(Object* questGiver)
                 return false;
 
             // appropriate npc type
-            if (npcflagmask && !creature->HasNpcFlag(NPCFlags(npcflagmask)))
+            if (!creature->HasNpcFlag(UNIT_NPC_FLAG_QUESTGIVER))
                 return false;
 
             // not allow interaction under control, but allow with own pets
@@ -303,35 +303,24 @@ bool NewRpgBaseAction::CanInteractWithQuestGiver(Object* questGiver)
             if (creature->GetReactionTo(bot) <= REP_UNFRIENDLY)
                 return false;
 
-            Trainer::Trainer* trainer = sObjectMgr->GetTrainer(creature->GetEntry());
-
-            // pussywizard: many npcs have missing conditions for class training and rogue trainer can for eg. train
-            // dual wield to a shaman :/ too many to change in sql and watch in the future pussywizard: this function is
-            // not used when talking, but when already taking action (buy spell, reset talents, show spell list)
-            if (npcflagmask & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_CLASS) &&
-                trainer->GetTrainerType() == Trainer::Type::Class &&
-                !trainer->IsTrainerValidForPlayer(bot))
-                return false;
-
             return true;
         }
-        case TYPEID_GAMEOBJECT:
+        case TYPEID_GAMEOBJECT: // Player::GetGameObjectIfCanInteractWith
         {
             ObjectGuid guid = questGiver->GetGUID();
-            GameobjectTypes type = GAMEOBJECT_TYPE_QUESTGIVER;
+
             if (GameObject* go = bot->GetMap()->GetGameObject(guid))
             {
-                if (go->GetGoType() == type)
+                if (go->GetGoType() == GAMEOBJECT_TYPE_QUESTGIVER)
                 {
                     // Players cannot interact with gameobjects that use the "Point" icon
                     if (go->GetGOInfo()->IconName == "Point")
-                    {
                         return false;
-                    }
 
                     return true;
                 }
             }
+
             return false;
         }
         // unused for now
@@ -371,7 +360,6 @@ bool NewRpgBaseAction::IsWithinInteractionDist(Object* questGiver)
         case TYPEID_GAMEOBJECT:
         {
             ObjectGuid guid = questGiver->GetGUID();
-            GameobjectTypes type = GAMEOBJECT_TYPE_QUESTGIVER;
             if (GameObject* go = bot->GetMap()->GetGameObject(guid))
             {
                 if (go->IsWithinDistInMap(bot))
@@ -557,7 +545,9 @@ bool NewRpgBaseAction::OrganizeQuestLog()
             continue;
 
         const Quest* quest = sObjectMgr->GetQuestTemplate(questId);
-        if (quest->GetZoneOrSort() < 0 || (quest->GetZoneOrSort() > 0 && quest->GetZoneOrSort() != bot->GetZoneId()))
+        const int64_t botZoneId = this->bot->GetZoneId();
+
+        if (quest->GetZoneOrSort() < 0 || (quest->GetZoneOrSort() > 0 && quest->GetZoneOrSort() != botZoneId))
         {
             LOG_DEBUG("playerbots", "[New RPG] {} drop quest {}", bot->GetName(), questId);
             WorldPacket packet(CMSG_QUESTLOG_REMOVE_QUEST);
@@ -866,7 +856,7 @@ bool NewRpgBaseAction::GetQuestPOIPosAndObjectiveIdx(uint32 questId, std::vector
 
 WorldPosition NewRpgBaseAction::SelectRandomGrindPos(Player* bot)
 {
-    const std::vector<WorldLocation>& locs = sRandomPlayerbotMgr->locsPerLevelCache[bot->GetLevel()];
+    const std::vector<WorldLocation>& locs = sRandomPlayerbotMgr.locsPerLevelCache[bot->GetLevel()];
     float hiRange = 500.0f;
     float loRange = 2500.0f;
     if (bot->GetLevel() < 5)
@@ -925,8 +915,8 @@ WorldPosition NewRpgBaseAction::SelectRandomGrindPos(Player* bot)
 WorldPosition NewRpgBaseAction::SelectRandomCampPos(Player* bot)
 {
     const std::vector<WorldLocation>& locs = IsAlliance(bot->getRace())
-                                                 ? sRandomPlayerbotMgr->allianceStarterPerLevelCache[bot->GetLevel()]
-                                                 : sRandomPlayerbotMgr->hordeStarterPerLevelCache[bot->GetLevel()];
+                                                 ? sRandomPlayerbotMgr.allianceStarterPerLevelCache[bot->GetLevel()]
+                                                 : sRandomPlayerbotMgr.hordeStarterPerLevelCache[bot->GetLevel()];
 
     bool inCity = false;
 
@@ -969,7 +959,7 @@ WorldPosition NewRpgBaseAction::SelectRandomCampPos(Player* bot)
 
 bool NewRpgBaseAction::SelectRandomFlightTaxiNode(ObjectGuid& flightMaster, uint32& fromNode, uint32& toNode)
 {
-    Creature* nearestFlightMaster = sFlightMasterCache->GetNearestFlightMaster(bot);
+    Creature* nearestFlightMaster = FlightMasterCache::Instance().GetNearestFlightMaster(bot);
     if (!nearestFlightMaster || bot->GetDistance(nearestFlightMaster) > 500.0f)
         return false;
 
@@ -1015,8 +1005,8 @@ bool NewRpgBaseAction::SelectRandomFlightTaxiNode(ObjectGuid& flightMaster, uint
             capital = zone->flags & AREA_FLAG_CAPITAL;
         }
 
-        auto itr = sRandomPlayerbotMgr->zone2LevelBracket.find(nodeZoneId);
-        if (!capital && itr == sRandomPlayerbotMgr->zone2LevelBracket.end())
+        auto itr = sRandomPlayerbotMgr.zone2LevelBracket.find(nodeZoneId);
+        if (!capital && itr == sRandomPlayerbotMgr.zone2LevelBracket.end())
             continue;
 
         if (!capital && (bot->GetLevel() < itr->second.low || bot->GetLevel() > itr->second.high))
@@ -1040,13 +1030,13 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
     uint32 probSum = 0;
     for (NewRpgStatus status : candidateStatus)
     {
-        if (sPlayerbotAIConfig->RpgStatusProbWeight[status] == 0)
+        if (sPlayerbotAIConfig.RpgStatusProbWeight[status] == 0)
             continue;
 
         if (CheckRpgStatusAvailable(status))
         {
             availableStatus.push_back(status);
-            probSum += sPlayerbotAIConfig->RpgStatusProbWeight[status];
+            probSum += sPlayerbotAIConfig.RpgStatusProbWeight[status];
         }
     }
     // Safety check. Default to "rest" if all RPG weights = 0
@@ -1061,7 +1051,7 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
     NewRpgStatus chosenStatus = RPG_STATUS_END;
     for (NewRpgStatus status : availableStatus)
     {
-        accumulate += sPlayerbotAIConfig->RpgStatusProbWeight[status];
+        accumulate += sPlayerbotAIConfig.RpgStatusProbWeight[status];
         if (accumulate >= rand)
         {
             chosenStatus = status;
